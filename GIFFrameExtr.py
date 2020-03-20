@@ -1,49 +1,106 @@
-from PIL import Image as PILImage
-import tgs
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
+from PyQt5.QtCore import *
+import sys
 import os
-from tkinter import filedialog
-from tkinter import *
+from PIL import Image as PILImage
+from PIL import GifImagePlugin
 
-def FrameExtract():
-    inputDir = folder_path.get()
-    filesList = os.listdir(inputDir)
-    for emoticon in filesList:
-        fileName = emoticon[:-4]
-        fileExt = emoticon[-4:]
-        if fileExt == ".gif":
-            inputGIF = PILImage.open(inputDir + "/" + fileName + fileExt)
-            GIFlength = inputGIF.info["duration"]
-            resizeRatio = (inputGIF.size[1] / inputGIF.size[0])
+app = QApplication(sys.argv)
 
-            if not os.path.exists(fileName):
-                os.mkdir(fileName)
+class MainWindow(QMainWindow): 
+    def __init__(self, *args, **kwargs):
+        super(MainWindow, self).__init__(*args, **kwargs)
 
-            for frame in range(GIFlength):
-                try:
-                    inputGIF.seek(frame)
-                    inputGIF.save(fileName + "/" + fileName + '{:04d}'.format(frame) + ".png")
-                except EOFError:
-                    break
-        else:
-            next
+        self.setWindowTitle("GIF Frames Extractor")
+        self.setWindowIcon(QIcon('easel.ico'))
 
+        windowLayout = QVBoxLayout()
+        headerLayout = QHBoxLayout()
+        dirSelectLayout = QHBoxLayout()
+        outSelectLayout = QHBoxLayout()
+        appRunLayout = QVBoxLayout()
 
-def browse_button():
-    # Allow user to select a directory and store it in global var
-    # called folder_path
-    global folder_path
-    filename = filedialog.askdirectory()
-    folder_path.set(filename)
+        appHeader = QLabel("GIF Frames Extractor")
+        selButton = QPushButton("Input directory")
+        selButton.setFixedSize(QSize(100,20))
+        outButton = QPushButton("Output directory")
+        outButton.setFixedSize(QSize(100,20))
+        runButton = QPushButton("Run")
+        progBar = QProgressBar(self)
+        progBar.setAlignment(Qt.AlignCenter)
+        dirLine = QLineEdit("")
+        outLine = QLineEdit("")
 
-mainWindow = Tk()
-mainWindow.geometry('320x240')
-folder_path = StringVar()
-lbl1 = Label(master=mainWindow,textvariable=folder_path)
-lbl1.grid(row=1, column=1)
-button2 = Button(text="Browse", command=browse_button)
-button2.grid(row=2, column=1)
-button3 = Button(text="Run", command=FrameExtract)
-button3.grid(row=2, column=2)
+        def input_directory():
+            fileDial = QFileDialog.getExistingDirectory(self, 'Select directory')
+            global dirUrl
+            dirUrl = fileDial
+            dirLine.insert(dirUrl)
 
-mainWindow.mainloop()
+        def output_directory():
+            fileDial = QFileDialog.getExistingDirectory(self, 'Select directory')
+            global outUrl
+            outUrl = fileDial
+            outLine.insert(outUrl)
 
+        def FrameExtract():
+            inputDir = dirUrl
+            filesList = os.listdir(inputDir)
+            progBar.setMaximum(len(filesList))
+            count = 0
+            for emoticon in filesList:
+                fileName = emoticon[:-4]
+                fileExt = emoticon[-4:]
+                if fileExt == ".gif":
+                    inputGIF = PILImage.open(inputDir + "/" + fileName + fileExt)
+                    GIFlength = inputGIF.n_frames
+
+                    if not os.path.exists(outUrl + "/" + fileName):
+                        os.mkdir(outUrl + "/" + fileName)
+
+                    for frame in range(0,GIFlength):
+                        inputGIF.seek(frame)
+                        inputGIF.save(outUrl + "/" + fileName + "/" + fileName + '{:04d}'.format(frame) + ".png")
+                else:
+                    next
+                count += 1
+                progBar.setValue(count)
+                print(count)
+
+                if count == len(filesList):
+                    progBar.setValue(0)
+                    msg = QMessageBox()
+                    msg.setText("GIF frames extracted")
+                    msg.exec_()
+
+        selButton.clicked.connect(input_directory)
+        outButton.clicked.connect(output_directory)
+        runButton.clicked.connect(FrameExtract)
+
+        headerLayout.addWidget(appHeader)
+        headerLayout.setAlignment(Qt.AlignCenter)
+
+        dirSelectLayout.addWidget(selButton)
+        dirSelectLayout.addWidget(dirLine)
+
+        outSelectLayout.addWidget(outButton)
+        outSelectLayout.addWidget(outLine)
+
+        appRunLayout.addWidget(runButton)
+        appRunLayout.addWidget(progBar)
+
+        windowLayout.addLayout(headerLayout)
+        windowLayout.addLayout(dirSelectLayout)
+        windowLayout.addLayout(outSelectLayout)
+        windowLayout.addLayout(appRunLayout)
+
+        widget = QWidget()
+        widget.setLayout(windowLayout)
+        self.setCentralWidget(widget)
+
+window = MainWindow()
+window.setFixedSize(400,150)
+window.show()
+
+app.exec_()
